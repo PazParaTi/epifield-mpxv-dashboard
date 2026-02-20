@@ -3,11 +3,11 @@ numpy
 matplotlib
 seaborn
 statsmodels
-streamlit
 plotly
 folium
 watchdog
 pytest
 scipy
-plotly
-altair<5
+altair>=5.0.0
+streamlit>=1.39.0
+pyarrow<14.0.0

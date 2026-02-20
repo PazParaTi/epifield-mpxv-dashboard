@@ -10,3 +10,4 @@ watchdog
 pytest
 scipy
 plotly
+altair<5

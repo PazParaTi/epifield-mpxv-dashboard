@@ -10,4 +10,3 @@ pytest
 scipy
 altair>=5.0.0
 streamlit>=1.39.0
-pyarrow<14.0.0

@@ -1,0 +1,24 @@
+flowchart TD
+
+%% Entrées
+A["📥 Données CRF MPXV<br/>Fichiers Word / Terrain réel"] 
+    --> B["🗂️ main.py (extraction)<br/>Parsing & Aggregation → extraction.json"]
+
+C["🧪 rdmStats.py<br/>Génération synthétique (900 cas, saisonnalité pluvieuse, régions Afrique)"] 
+    --> D["📊 Données fictives → synthetic_outputs/ (JSON/CSV)"]
+
+%% Pré-analyse
+B --> E["🔧 analyze_extraction.py<br/>Nettoyage, normalisation, typage, dérivées<br/>Catalog variables + plan comparaisons → outputs/"]
+D --> E
+
+%% Analyse avancée
+E --> F["📈 analyse.py<br/>Chargement (synthétique/réel), enrichissements<br/>Prévisions temporelles (Prophet/ExpSmoothing)<br/>Graphs PNG (incidence, positivité, saisonnalité, heatmaps)"]
+
+%% Dashboards & Sorties
+F --> G["🖥️ Dashboards statiques HTML<br/>Local/National/International → dashboard_outputs/ (HTML + CSV agrégés)"]
+F --> H["📱 dashboard_app.py<br/>Dashboard interactif Streamlit (KPI globaux, tabs multi-niveaux, Plotly interactifs, filtres dates/régions)"]
+H --> I["🚀 Déploiement public<br/>Streamlit Community Cloud (requirements.txt + runtime.txt Python 3.12) → URL en ligne"]
+
+%% Sortie finale
+G --> J["🎯 Décisionnels<br/>Opérationnel (local), Stratégique (national), Partenaires (international OMS/ECDC)"]
+I --> J

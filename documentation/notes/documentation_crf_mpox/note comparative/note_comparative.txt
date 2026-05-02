@@ -1,0 +1,105 @@
+# Note comparative — Systèmes d’analytique MPXV : déclinaisons Local / National / International
+
+## 1. Objectif du document
+Ce document compare et justifie les trois déclinaisons produites par la chaîne analytique MPXV :  
+- **Niveau Local** (opérationnel / terrain)  
+- **Niveau National** (suivi épidémiologique et pilotage stratégique)  
+- **Niveau International** (format harmonisé OMS / ECDC)
+
+L’objectif est d’expliciter les choix de contenu, d’indicateurs, de visualisations et de niveaux d’agrégation pour chaque public, d’évaluer leurs avantages et limites, et de proposer des recommandations d’amélioration.
+
+## 2. Méthodologie générale
+La production des trois vues repose sur une **source unique enrichie** :
+
+1. Extraction des CRF Word → `main.py` + `extract_word.py` + `parsers.py` + `aggregator.py` → `extraction.json`
+2. Génération de données synthétiques réalistes (optionnelle mais utilisée pour les tests) → `rdmStats.py` (900 cas, 2024-2025, saisonnalité pluvieuse, modulation régionale)
+3. Pré-analyse et catalogue → `analyze_extraction.py` (normalisation, typage, variables dérivées, plan de comparaisons dynamique)
+4. Analyse finale, prévisions et agrégations → `analyse.py` (Prophet / Exponential Smoothing, graphs PNG, construction des trois datasets)
+5. Dashboards :
+   - Statiques HTML (3 versions) générés par `analyse.py`
+   - Interactif Streamlit (`dashboard_app.py`) déployé sur Streamlit Community Cloud
+
+Tous les indicateurs et visualisations proviennent de cette même chaîne, garantissant cohérence et traçabilité.
+
+## 3. Comparaison des trois niveaux
+
+### a) Niveau Local (opérationnel / terrain)
+**Granularité** : individuelle (une ligne = un cas)  
+**Variables conservées** :
+- Cliniques détaillées : `nb_symptomes`, `severe`, `localisations`, `nb_localisations_lesions`
+- Laboratoire : `pcr_any_positif`, `ct_value_num`, `charge_virale_cat`, `delai_symptomes_vers_pcr_jours`
+- Exposition / logistique : `antecedent_voyage`, `voyage_zone_epidemie`, `contact_cas_confirm_suspect`, `mobilite_groupe`
+- Démographie et comorbidités : `age`, `sexe`, `vih_statut`, `nb_comorbidites`
+
+**Objectifs** :
+- Identification rapide des cas sévères et clusters
+- Priorisation des interventions (tests, isolement, contact tracing)
+- Suivi opérationnel fin (délais diagnostic, qualité des prélèvements)
+
+**Visualisations principales** :
+- Ct vs délai, nombre de symptômes par statut PCR, distribution des localisations, positivité par mobilité
+
+**Avantages / Limites** :
+- Très concret et actionnable
+- Risque de sensibilité des données (confidentialité)
+
+### b) Niveau National (situation épidémiologique & pilotage stratégique)
+**Granularité** : agrégée par `semaine`, `sexe`, `age_bin`  
+**Indicateurs clés** :
+- `total_cases`, `positivity_rate`, `median_ct`, `mean_nb_symptomes`, `proportion_severe`
+- Distribution `charge_virale_cat`
+- Écart vs prévision (Prophet), niveau saisonnier
+
+**Objectifs** :
+- Suivi des tendances nationales
+- Allocation de ressources (tests, vaccins, capacités hospitalières)
+- Surveillance des groupes à risque (âge, VIH, saisonnalité)
+
+**Visualisations principales** :
+- Incidence & positivité par semaine avec prévision, heatmap par région/mois, sévérité par âge et VIH
+
+**Avantages / Limites** :
+- Synthèse claire pour la décision stratégique
+- Perte de granularité locale (clusters fins)
+
+### c) Niveau International (OMS / ECDC)
+**Granularité** : fortement agrégée (semaine + grands groupes d’âge + sexe)  
+**Indicateurs harmonisés** :
+- `total_cases`, `positivity_rate`, `severe_rate`, `travel_related_rate`
+- `age_group` standardisé (0-4 / 5-17 / 18-29 / 30-44 / 45-59 / 60+)
+
+**Objectifs** :
+- Comparabilité inter-pays
+- Signalement rapide de signaux transfrontaliers
+- Respect strict de la confidentialité
+
+**Avantages / Limites** :
+- Haute interopérabilité et faible risque de ré-identification
+- Perte importante de détails cliniques et opérationnels
+
+## 4. Justification des variables dérivées principales
+- `pcr_any_positif`, `ct_value_num`, `charge_virale_cat` → indicateurs de confirmation et d’infectiosité
+- `nb_symptomes`, `severe`, `nb_localisations_lesions` → mesure de charge clinique et étendue de la maladie
+- `delai_symptomes_vers_pcr_jours` → performance du système de surveillance
+- `mobilite_groupe`, `travel_related_rate` → détection des voies d’importation
+- `vih_statut`, `nb_comorbidites` → identification des populations vulnérables
+- Variables saisonnières (`saison_pluvieuse_level`) → modélisation et prévision réaliste en contexte africain
+
+## 5. Justification des visualisations et dashboards
+- **Local** : focus sur détails cliniques et opérationnels (Ct vs délai, localisations, symptômes)
+- **National** : focus sur tendances et prévisions (incidence hebdo avec Prophet, heatmap région/mois, sévérité par âge)
+- **International** : focus sur indicateurs synthétiques et comparables (taux agrégés, distribution par grands groupes d’âge)
+
+Le dashboard interactif Streamlit (`dashboard_app.py`) permet de naviguer dynamiquement entre les trois niveaux grâce aux filtres et tabs.
+
+## 6. Conclusion
+Les trois déclinaisons forment un système cohérent, modulaire et adapté aux besoins réels des différents acteurs :
+
+- **Local** : action rapide et patient-centrée  
+- **National** : pilotage stratégique et allocation de ressources  
+- **International** : comparabilité et signalement harmonisé
+
+Grâce à une source unique enrichie (`rdmStats.py` + pipeline d’analyse), le projet garantit cohérence, traçabilité et reproductibilité tout en respectant les contraintes de confidentialité à chaque niveau.
+
+**Projet créé et maintenu par Camill Lallement aka PazParaTi**  
+Février 2026

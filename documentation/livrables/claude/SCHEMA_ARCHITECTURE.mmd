@@ -1,0 +1,89 @@
+graph TD
+    %% ========== SOURCES DE DONNEES ==========
+    CRF["📋 Fichiers CRF Word<br/>Case Report Forms"]
+    SYNTH["🔄 Générateur Synthétique<br/>rdmStats.py"]
+    
+    %% ========== SELECTION MODE ==========
+    MODE{{"🔀 Sélecteur Mode<br/>DATA_MODE env var"}}
+    
+    %% ========== COUCHE INGESTION ==========
+    EXTRACT["⚙️ EXTRACTION<br/>extract_word.py<br/>+ parsers.py"]
+    
+    REAL_DATA["📊 Données Réelles<br/>extraction.csv<br/>extraction.json"]
+    SYNTH_DATA["📊 Données Synthétiques<br/>900 cas avec<br/>saisonnalité"]
+    
+    %% ========== COUCHE TRAITEMENT ==========
+    ANALYZE["🔍 NORMALISATION<br/>analyze_extraction.py<br/>- Classification variables<br/>- Catalogue variables<br/>- Variables dérivées"]
+    
+    CAT_DATA["📑 Catalogue Enrichi<br/>variables_catalog.csv<br/>Métadonnées"]
+    
+    PROCESS["📈 ANALYSE & PREVISION<br/>analyse.py<br/>- Nettoyage données<br/>- Agrégations<br/>- Prophet/Smoothing"]
+    
+    %% ========== SORTIES INTERMEDIAIRES ==========
+    LOCAL["🏥 Données Locales<br/>data_local.csv<br/>Niveau cas"]
+    NATIONAL["🗺️ Données Nationales<br/>data_national.csv<br/>Agrégations régionales"]
+    INTL["🌍 Données Internationales<br/>data_international.csv<br/>Comparaisons"]
+    FORECAST["📅 Prévisions<br/>national_forecast.csv<br/>12 semaines"]
+    
+    %% ========== COUCHE PRESENTATION ==========
+    DASHBOARD["🎨 DASHBOARD STREAMLIT<br/>dashboard_app.py<br/>- Filtres interactifs<br/>- 14+ visualisations<br/>- KPI temps réel"]
+    
+    STATIC["📄 Dashboards Statiques<br/>HTML & PNG<br/>pour rapports"]
+    
+    %% ========== INFRASTRUCTURE & DEPLOIEMENT ==========
+    GITHUB["💾 GitHub Repository<br/>- Code source<br/>- Données brutes<br/>- Versioning"]
+    
+    STREAMLIT["☁️ Streamlit Cloud<br/>- Runtime Python 3.12<br/>- Déploiement auto<br/>- Domaine public"]
+    
+    USERS["👥 Utilisateurs<br/>Épidémiologistes<br/>Gestionnaires<br/>Scientifiques"]
+    
+    %% ========== FLUX DONNEES ==========
+    CRF -->|push vers repo| GITHUB
+    SYNTH -->|intégré dans| GITHUB
+    
+    GITHUB -->|git pull| MODE
+    
+    MODE -->|mode=real| EXTRACT
+    MODE -->|mode=synthetic| SYNTH_DATA
+    
+    EXTRACT --> REAL_DATA
+    
+    REAL_DATA --> ANALYZE
+    SYNTH_DATA --> ANALYZE
+    
+    ANALYZE --> CAT_DATA
+    ANALYZE --> PROCESS
+    
+    PROCESS --> LOCAL
+    PROCESS --> NATIONAL
+    PROCESS --> INTL
+    PROCESS --> FORECAST
+    
+    LOCAL --> DASHBOARD
+    NATIONAL --> DASHBOARD
+    INTL --> DASHBOARD
+    FORECAST --> DASHBOARD
+    
+    DASHBOARD -->|export PNG/PDF| STATIC
+    
+    GITHUB -->|auto-trigger| STREAMLIT
+    DASHBOARD -->|déploie sur| STREAMLIT
+    
+    STREAMLIT -->|accès public| USERS
+    
+    %% ========== STYLE ==========
+    classDef source fill:#e1f5ff,stroke:#01579b,stroke-width:2px,color:#000
+    classDef ingestion fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px,color:#000
+    classDef processing fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
+    classDef output fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000
+    classDef infra fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
+    classDef users fill:#f1f8e9,stroke:#33691e,stroke-width:2px,color:#000
+    classDef decision fill:#fff9c4,stroke:#f57f17,stroke-width:3px,color:#000
+    
+    class CRF,SYNTH source
+    class EXTRACT,REAL_DATA,SYNTH_DATA ingestion
+    class ANALYZE,CAT_DATA,PROCESS processing
+    class LOCAL,NATIONAL,INTL,FORECAST,DASHBOARD,STATIC output
+    class GITHUB,STREAMLIT infra
+    class USERS users
+    class MODE decision

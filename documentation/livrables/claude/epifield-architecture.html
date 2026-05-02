@@ -1,0 +1,1872 @@
+﻿<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EpiField - Dashboard Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #070c14;
+      --bg-card: #0d1520;
+      --bg-elevated: #111d2e;
+      --border: #1e3048;
+      --border-glow: #1e4a7a;
+      --text-primary: #e2eaf6;
+      --text-secondary: #7a99be;
+      --text-muted: #3d5a7a;
+      --accent-blue: #3b82f6;
+      --accent-blue-glow: rgba(59,130,246,0.15);
+      --accent-green: #10b981;
+      --accent-green-glow: rgba(16,185,129,0.15);
+      --accent-orange: #f59e0b;
+      --accent-orange-glow: rgba(245,158,11,0.12);
+      --accent-cyan: #06b6d4;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: 'Space Grotesk', sans-serif;
+      margin: 0;
+      min-height: 100vh;
+    }
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .content-layer { position: relative; z-index: 1; }
+
+    /* Top navigation */
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 14px 28px;
+      background: rgba(13, 21, 32, 0.94);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 45px rgba(7, 12, 20, 0.35);
+      z-index: 100;
+      overflow: hidden;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .logo-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(16,185,129,0.1));
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.3px;
+      color: var(--text-primary);
+    }
+    .logo-badge .pulse {
+      width: 8px; height: 8px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+      50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+    .nav-links::-webkit-scrollbar { height: 5px; }
+    .nav-links::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+    .nav-section {
+      flex: 0 0 auto;
+      padding: 0 8px 0 0;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .nav-item {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      margin: 0;
+      flex: 0 0 auto;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+    .nav-item:hover { background: var(--bg-elevated); color: var(--text-primary); }
+    .nav-item.active {
+      background: var(--accent-blue-glow);
+      color: var(--accent-blue);
+      border: 1px solid rgba(59,130,246,0.35);
+      box-shadow: inset 0 0 0 1px rgba(59,130,246,0.12);
+    }
+    .nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+    /* Main content */
+    #main { margin-left: 0; padding: 138px 40px 32px; overflow-x: hidden; }
+
+    /* Toggle button styling */
+    #sidebar-toggle {
+      display: none;
+    }
+    #sidebar-toggle:hover { background: var(--accent-blue); color: var(--bg-card); }
+
+    .nav-status {
+      margin-left: auto;
+      flex: 0 0 auto;
+      min-width: 215px;
+    }
+    .nav-status-card {
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    /* Ensure section titles sit below the sidebar but above background */
+    .section h2, .section .section-title { position: relative; z-index: 90; }
+
+    /* Section cards */
+    .section { display: none; animation: fadeIn 0.3s ease; }
+    .section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 24px;
+      transition: border-color 0.2s ease;
+    }
+    .card:hover { border-color: var(--border-glow); }
+    .card-sm { padding: 20px; border-radius: 12px; }
+
+    /* KPI Cards */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.25s ease;
+    }
+    .kpi-card:hover { transform: translateY(-2px); border-color: var(--border-glow); }
+    .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+    .kpi-label { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .kpi-badge { display: inline-block; font-size: 0.7rem; border-radius: 6px; padding: 2px 8px; margin-top: 8px; font-weight: 600; }
+
+    /* Headings */
+    .page-title {
+      font-size: 2rem; font-weight: 700;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .page-subtitle { color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 32px; }
+    .section-title {
+      font-size: 1.15rem; font-weight: 700;
+      color: var(--text-primary); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* Tags / Badges */
+    .tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .tag-blue { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+    .tag-green { background: rgba(16,185,129,0.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+    .tag-orange { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+    .tag-purple { background: rgba(139,92,246,0.15); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.3); }
+    .tag-rose { background: rgba(244,63,94,0.15); color: #fda4af; border: 1px solid rgba(244,63,94,0.3); }
+
+    /* Code blocks */
+    .code-block {
+      background: #060d18;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      position: relative;
+    }
+    .code-block .copy-btn {
+      position: absolute; top: 12px; right: 12px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      font-family: 'Space Grotesk', sans-serif;
+      transition: all 0.2s;
+    }
+    .code-block .copy-btn:hover { background: var(--border-glow); color: var(--text-primary); }
+    .code-keyword { color: #7dd3fc; }
+    .code-string { color: #86efac; }
+    .code-comment { color: #475569; font-style: italic; }
+    .code-var { color: #fbbf24; }
+    .code-func { color: #c084fc; }
+
+    /* Pipeline steps */
+    .pipeline-steps { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+    .pipeline-step {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+      position: relative;
+      transition: all 0.25s;
+    }
+    .pipeline-step:hover { border-color: var(--border-glow); transform: translateY(-2px); }
+    .pipeline-arrow {
+      display: flex; align-items: center;
+      color: var(--text-muted); font-size: 1.2rem;
+      padding: 0 4px; flex-shrink: 0;
+    }
+    .step-icon { font-size: 1.8rem; margin-bottom: 10px; }
+    .step-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .step-detail { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* Switch visualization */
+    .switch-viz {
+      display: flex; gap: 20px; margin-bottom: 24px;
+    }
+    .switch-mode {
+      flex: 1;
+      border-radius: 14px;
+      padding: 24px;
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .switch-mode.synthetic {
+      background: rgba(245,158,11,0.08);
+      border-color: rgba(245,158,11,0.3);
+    }
+    .switch-mode.real {
+      background: rgba(16,185,129,0.08);
+      border-color: rgba(16,185,129,0.3);
+    }
+    .switch-mode:hover { transform: scale(1.02); }
+    .switch-mode.synthetic:hover { box-shadow: 0 0 30px rgba(245,158,11,0.1); }
+    .switch-mode.real:hover { box-shadow: 0 0 30px rgba(16,185,129,0.1); }
+
+    /* Table styles */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .data-table th {
+      background: var(--bg-elevated);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+    .data-table tr:hover td { background: var(--bg-elevated); color: var(--text-primary); }
+    .data-table th:first-child, .data-table td:first-child { padding-left: 20px; }
+
+    /* Roadmap */
+    .roadmap-item {
+      display: flex; gap: 20px;
+      margin-bottom: 4px;
+    }
+    .roadmap-line {
+      display: flex; flex-direction: column; align-items: center;
+      width: 28px; flex-shrink: 0;
+    }
+    .roadmap-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%; border: 2px solid;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .roadmap-connector { width: 2px; flex: 1; min-height: 24px; margin-top: 4px; }
+    .roadmap-content { flex: 1; padding-bottom: 28px; }
+    .roadmap-phase { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .roadmap-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+    .roadmap-items-list { font-size: 0.82rem; color: var(--text-secondary); line-height: 2; }
+
+    /* Accordion */
+    .accordion-header {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      transition: color 0.2s;
+    }
+    .accordion-header:hover { color: var(--accent-blue); }
+    .accordion-body { display: none; padding: 20px 0; }
+    .accordion-body.open { display: block; }
+    .accordion-chevron { transition: transform 0.3s ease; font-size: 0.9rem; }
+    .accordion-chevron.open { transform: rotate(180deg); }
+
+    /* Mermaid container */
+    #mermaid-container {
+      background: #060d18;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      overflow-x: auto;
+      overflow-y: auto;
+      min-height: 700px;
+      display: block;
+      align-items: stretch;
+      justify-content: flex-start;
+      width: 100%;
+    }
+    #mermaid-container svg {
+      max-width: 100%;
+      height: auto;
+      max-height: 75vh;
+      width: 100%;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 28px 0;
+    }
+
+    /* Alert */
+    .alert {
+      border-radius: 10px; padding: 14px 18px;
+      font-size: 0.875rem; display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .alert-green { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
+    .alert-blue { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); color: #93c5fd; }
+    .alert-orange { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); color: #fcd34d; }
+
+    /* Infra card */
+    .infra-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .infra-card {
+      background: var(--bg-elevated);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+    .infra-icon { font-size: 2rem; margin-bottom: 12px; }
+
+    /* Level cards */
+    .level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+    .level-card {
+      border-radius: 14px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      transition: all 0.25s;
+    }
+    .level-card:hover { transform: translateY(-3px); }
+    .level-card.local { background: rgba(59,130,246,0.07); border-color: rgba(59,130,246,0.25); }
+    .level-card.national { background: rgba(16,185,129,0.07); border-color: rgba(16,185,129,0.25); }
+    .level-card.intl { background: rgba(139,92,246,0.07); border-color: rgba(139,92,246,0.25); }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .nav-status {
+        display: none;
+      }
+    }
+    @media (max-width: 900px) {
+      #sidebar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 14px 16px;
+      }
+      .sidebar-logo {
+        align-items: flex-start;
+      }
+      .nav-links {
+        padding-bottom: 2px;
+      }
+      .nav-section {
+        display: none;
+      }
+      #main { padding: 150px 20px 20px; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .level-grid { grid-template-columns: 1fr; }
+      .infra-grid { grid-template-columns: 1fr; }
+      .switch-viz { flex-direction: column; }
+      .pipeline-steps { flex-direction: column; }
+      .pipeline-arrow { transform: rotate(90deg); justify-content: center; }
+    }
+
+    /* Tooltip */
+    [data-tooltip] { position: relative; cursor: help; }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      color: var(--text-primary); padding: 6px 12px; border-radius: 8px;
+      font-size: 0.75rem; white-space: nowrap; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s; z-index: 999;
+    }
+    [data-tooltip]:hover::after { opacity: 1; }
+
+    /* Scrollbar global */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Mobile hamburger */
+    #hamburger {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div class="content-layer">
+
+  <button id="hamburger" onclick="toggleSidebar()">☰</button>
+
+  <nav id="sidebar" class="lg:relative lg:flex-shrink-0 w-72" style="position: relative;">
+    <button id="sidebar-toggle" onclick="toggleSidebarCollapse()" title="Rétracter/Étendre le menu">◀</button>
+    <div class="sidebar-logo">
+      <div class="logo-badge">
+        <div class="pulse"></div>
+        🏥 EpiField
+      </div>
+      <div style="font-size:0.75rem; color:var(--text-muted); margin-top:8px; padding-left:4px;">Architecture v1.0 · Avril 2026</div>
+    </div>
+
+    <div class="nav-links">
+      <div class="nav-section">Navigation</div>
+    <a class="nav-item active" data-section="accueil" onclick="showSection('accueil', event)" href="#">
+      <span class="nav-icon">🏠</span> Accueil & Résumé
+    </a>
+    <a class="nav-item" data-section="architecture" onclick="showSection('architecture', event)" href="#">
+      <span class="nav-icon">🗺️</span> Architecture
+    </a>
+    <a class="nav-item" data-section="pipeline" onclick="showSection('pipeline', event)" href="#">
+      <span class="nav-icon">🔄</span> Pipeline de Données
+    </a>
+    <a class="nav-item" data-section="switch" onclick="showSection('switch', event)" href="#">
+      <span class="nav-icon">🔀</span> Switch Mode
+    </a>
+    <a class="nav-item" data-section="niveaux" onclick="showSection('niveaux', event)" href="#">
+      <span class="nav-icon">📊</span> 3 Niveaux
+    </a>
+    <a class="nav-item" data-section="infra" onclick="showSection('infra', event)" href="#">
+      <span class="nav-icon">☁️</span> Infrastructure
+    </a>
+    <a class="nav-item" data-section="roadmap" onclick="showSection('roadmap', event)" href="#">
+      <span class="nav-icon">🚀</span> Roadmap
+    </a>
+    <a class="nav-item" data-section="reference" onclick="showSection('reference', event)" href="#">
+      <span class="nav-icon">📋</span> Quick Reference
+    </a>
+    <a class="nav-item" data-section="contact" onclick="showSection('contact', event)" href="#">
+      <span class="nav-icon">📞</span> Contact & Ressources
+    </a>
+
+    </div>
+
+    <div class="nav-status">
+      <div class="nav-status-card">
+        <div style="font-size:0.7rem; color: var(--accent-green); font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">✅ Statut Projet</div>
+        <div style="font-size:0.8rem; color:var(--text-secondary); line-height:1.8;">
+          MVP : <span style="color:var(--accent-green)">En cours</span><br>
+          Budget : <span style="color:var(--accent-green)">0 €</span><br>
+          Critères : <span style="color:var(--accent-green)">11 / 11 ✅</span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <section id="sec-accueil" class="section active">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom: 8px;">
+        <div>
+          <div class="page-title">EpiField Dashboard</div>
+          <div class="page-subtitle">Plateforme de Surveillance Épidémiologique · Architecture Technique Complète</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="tag tag-green">✅ MVP Ready</span>
+          <span class="tag tag-blue">Python + Streamlit</span>
+          <span class="tag tag-orange">0 € infra</span>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-value" style="color:var(--accent-green)">0 €</div>
+          <div class="kpi-label">Budget Infrastructure</div>
+          <div class="kpi-badge" style="background:rgba(16,185,129,0.15);color:#6ee7b7;">Serverless</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" style="color:var(--accent-blue)">3–4</div>
+          <div class="kpi-label">Semaines MVP</div>
+          <div class="kpi-badge" style="background:rgba(59,130,246,0.15);color:#93c5fd;">Équipe 2-3 devs</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" style="color:var(--accent-orange)">11/11</div>
+          <div class="kpi-label">Critères Respectés</div>
+          <div class="kpi-badge" style="background:rgba(245,158,11,0.15);color:#fcd34d;">Validé</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" style="color:var(--accent-purple)">< 5min</div>
+          <div class="kpi-label">Temps Réel</div>
+          <div class="kpi-badge" style="background:rgba(139,92,246,0.15);color:#c4b5fd;">Refresh auto</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🎯 Résumé Exécutif</div>
+        <p style="color:var(--text-secondary); font-size:0.92rem; line-height:1.8; margin-bottom:20px;">
+          <strong style="color:var(--text-primary)">EpiField</strong> est une plateforme de surveillance épidémiologique multi-pathogènes construite sur une architecture
+          <strong style="color:var(--accent-blue)">pipeline linéaire en 3 couches</strong> : Ingestion → Traitement → Présentation.
+          Le projet cible actuellement le <strong style="color:var(--text-primary)">MPXV (Monkeypox)</strong> avec une architecture généraliste
+          extensible à tout pathogène. La plateforme est déployée gratuitement sur
+          <strong style="color:var(--accent-green)">Streamlit Community Cloud + GitHub</strong>, sans infrastructure serveur.
+        </p>
+        <div class="alert alert-green">
+          <span>✨</span>
+          <span><strong>Architecture en 30 secondes :</strong> CRF Word / rdmStats.py → <strong>SWITCH MODE</strong> → EXTRACTION → TRAITEMENT → DASHBOARD STREAMLIT → Utilisateurs</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">💚 Avantages vs Architecture Classique</div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Aspect</th>
+                <th>EpiField</th>
+                <th>Architecture Classique</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong style="color:var(--text-primary)">Coût infra</strong></td>
+                <td><span style="color:var(--accent-green)">0 €</span></td>
+                <td style="color:var(--text-muted)">500–2000 €/mois</td>
+              </tr>
+              <tr>
+                <td><strong style="color:var(--text-primary)">Temps déploiement</strong></td>
+                <td><span style="color:var(--accent-green)">2 clics (5 min)</span></td>
+                <td style="color:var(--text-muted)">2–3 jours (Docker + CI/CD)</td>
+              </tr>
+              <tr>
+                <td><strong style="color:var(--text-primary)">Maintenance</strong></td>
+                <td><span style="color:var(--accent-green)">Minimale (serverless)</span></td>
+                <td style="color:var(--text-muted)">Équipe DevOps requise</td>
+              </tr>
+              <tr>
+                <td><strong style="color:var(--text-primary)">Complexité</strong></td>
+                <td><span style="color:var(--accent-green)">Simple (3 couches)</span></td>
+                <td style="color:var(--text-muted)">Complexe (k8s, Postgres, etc.)</td>
+              </tr>
+              <tr>
+                <td><strong style="color:var(--text-primary)">Risque</strong></td>
+                <td><span style="color:var(--accent-green)">Bas (prototype low-cost)</span></td>
+                <td style="color:var(--text-muted)">Moyen (infra coûteuse)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:16px; text-align:right;">
+          <span class="tag tag-green">💡 Start simple, scale when needed</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">✅ Checklist des 11 Critères</div>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Architecture simple, sans complexité excessive</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Maquette dynamique (schéma Mermaid coloré)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>6 briques techniques avec articulation détaillée</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Note explicative courte (2 pages format A4)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Python + Streamlit détaillé partout</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Low-cost : Streamlit Cloud + GitHub (0 €)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Pas de Docker · Serverless simplifié</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Pipeline multi-pathogènes généraliste</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Temps réel · Rafraîchissement &lt; 5 minutes</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-orange);font-size:1.1rem;">✅</span>
+            <span><strong style="color:var(--accent-orange)">Switch synthétique ↔ réel clairement montré</strong></span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; padding:10px; background:var(--bg-elevated); border-radius:8px; font-size:0.85rem;">
+            <span style="color:var(--accent-green);font-size:1.1rem;">✅</span>
+            <span>Style fluide professionnel en français</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-architecture" class="section">
+      <div class="page-title">🗺️ Architecture Technique</div>
+      <div class="page-subtitle">Schéma Mermaid interactif · Vue complète du système EpiField</div>
+
+      <div class="alert alert-blue">
+        <span>ℹ️</span>
+        <span>Le schéma ci-dessous représente le flux complet des données EpiField, de la collecte CRF jusqu'aux utilisateurs finaux. Le nœud central jaune (🔀) est le <strong>sélecteur de mode DATA_MODE</strong> — cœur de l'architecture.</span>
+      </div>
+
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
+          <div class="section-title" style="margin:0;">📐 SCHEMA_ARCHITECTURE.mmd</div>
+          <div style="display:flex; gap:8px;">
+            <span class="tag tag-blue">Mermaid.js</span>
+            <span class="tag tag-green">Interactif</span>
+          </div>
+        </div>
+        <div id="mermaid-container">
+          <div class="mermaid">graph TD
+      subgraph S1 ["1. SOURCES & ACQUISITION"]
+        A1["📋 Fichiers CRF Word<br/>(Case Report Forms)"]
+        A2["🔄 Générateur Synthétique<br/>(rdmStats.py)"]
+      end
+
+      subgraph S2 ["2. PIPELINE DE DONNÉES"]
+        B1["⚙️ EXTRACTION<br/>(extract_word.py + parsers.py)"]
+        B2["🔀 Sélecteur Mode<br/>(DATA_MODE env var)"]
+        B3["🔍 NORMALISATION<br/>(analyze_extraction.py)"]
+      end
+
+      subgraph S3 ["3. STOCKAGE & CATALOGUE"]
+        C1["📊 Données Réelles<br/>(extraction.csv / .json)"]
+        C2["📊 Données Synthétiques<br/>(900 cas + saisonnalité)"]
+        C3["📑 Catalogue Enrichi<br/>(variables_catalog.csv)"]
+      end
+
+      subgraph S4 ["4. INTELLIGENCE & PRÉVISION"]
+        D1["📈 ANALYSE & PRÉVISION<br/>(analyse.py : Prophet)"]
+        D2["🏥 Données Locales"]
+        D3["🗺️ Données Nationales"]
+        D4["🌍 Données Internationales"]
+        D5["📅 Prévisions (12 semaines)"]
+      end
+
+      subgraph S5 ["5. DÉPLOIEMENT"]
+        E1["🎨 DASHBOARD STREAMLIT<br/>(14+ visualisations)"]
+        E2["📄 Dashboards Statiques (HTML/PNG)"]
+        E3["☁️ Streamlit Cloud (Python 3.12)"]
+      end
+
+      %% Connexions
+      A1 --> B1
+      B1 --> C1
+      A2 --> C2
+      C1 --> B2
+      C2 --> B2
+      B2 --> B3
+      B3 --> C3
+      B3 --> D1
+      D1 --> D2
+      D1 --> D3
+      D1 --> D4
+      D1 --> D5
+      D2 --> E1
+      D3 --> E1
+      D4 --> E1
+      D5 --> E1
+      E1 --> E2
+      E1 --> E3
+      E3 --> U["👥 Utilisateurs"]
+
+      %% Style
+      style B2 fill:#f96,stroke:#333,stroke-width:2px
+      style E3 fill:#00a,color:#fff
+          </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <section id="sec-pipeline" class="section">
+      <div class="page-title">🔄 Pipeline de Données</div>
+      <div class="page-subtitle">3 couches linéaires · Ingestion → Traitement → Présentation</div>
+
+      <div class="card">
+        <div class="section-title">🌊 Vue Linéaire du Pipeline</div>
+        <div class="pipeline-steps">
+          <div class="pipeline-step" style="border-color:rgba(139,92,246,0.4);">
+            <div class="step-icon">📥</div>
+            <div class="step-title" style="color:#c4b5fd;">Ingestion</div>
+            <div class="step-detail">extract_word.py<br/>parsers.py<br/>aggregator.py</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step" style="border-color:rgba(245,158,11,0.4);">
+            <div class="step-icon">⚙️</div>
+            <div class="step-title" style="color:#fcd34d;">Normalisation</div>
+            <div class="step-detail">analyze_extraction.py<br/>Classification auto<br/>Catalogue variables</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step" style="border-color:rgba(245,158,11,0.4);">
+            <div class="step-icon">📈</div>
+            <div class="step-title" style="color:#fcd34d;">Analyse</div>
+            <div class="step-detail">analyse.py<br/>Prévisions Prophet<br/>Agrégations</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step" style="border-color:rgba(16,185,129,0.4);">
+            <div class="step-icon">🎨</div>
+            <div class="step-title" style="color:#6ee7b7;">Dashboard</div>
+            <div class="step-detail">dashboard_app.py<br/>Streamlit + Plotly<br/>14+ graphiques</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step" style="border-color:rgba(59,130,246,0.4);">
+            <div class="step-icon">👥</div>
+            <div class="step-title" style="color:#93c5fd;">Utilisateurs</div>
+            <div class="step-detail">URL Streamlit<br/>Accès public<br/>Temps réel</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div onclick="toggleAccordion('c1')" class="accordion-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">📥</div>
+            <div>
+              <div style="font-weight:700; color:var(--text-primary);">COUCHE 1 — Ingestion des Données</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">extract_word.py · parsers.py · rdmStats.py</div>
+            </div>
+          </div>
+          <span class="accordion-chevron open" id="chevron-c1">▾</span>
+        </div>
+        <div id="body-c1" class="accordion-body open">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div style="background:var(--bg-elevated); border-radius:10px; padding:18px; border-left:3px solid #3b82f6;">
+              <div style="font-weight:700; color:#93c5fd; margin-bottom:8px;">📋 Source Réelle — CRF Word</div>
+              <div style="font-size:0.83rem; color:var(--text-secondary); line-height:1.7;">
+                Fichiers formulaires médicaux (.docx)<br>
+                Pipeline d'extraction via <code style="color:#fbbf24;">extract_word.py</code><br>
+                Parseurs regex + agrégateur<br>
+                Résultat : CSV/JSON structurés<br>
+                Fréquence : À la demande (batch)
+              </div>
+            </div>
+            <div style="background:var(--bg-elevated); border-radius:10px; padding:18px; border-left:3px solid #f59e0b;">
+              <div style="font-weight:700; color:#fcd34d; margin-bottom:8px;">🔄 Source Synthétique — rdmStats.py</div>
+              <div style="font-size:0.83rem; color:var(--text-secondary); line-height:1.7;">
+                Génère 900 cas fictifs réalistes<br>
+                Intègre saisonnalité + variabilité régionale<br>
+                Profils de positivité + comorbidités<br>
+                Tests sans données sensibles<br>
+                Scalabilité et nouveaux indicateurs
+              </div>
+            </div>
+          </div>
+          <div style="background: #060d18; border:1px solid var(--border); border-radius:10px; padding:16px; font-family:monospace; font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+            <span style="color:#64748b;"># Fichiers produits par la couche Ingestion</span><br>
+            extraction.csv &nbsp;&nbsp;→ &nbsp;<span style="color:#86efac;">données tabulaires structurées</span><br>
+            extraction.json →  <span style="color:#86efac;">données avec traçabilité source</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div onclick="toggleAccordion('c2')" class="accordion-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">⚙️</div>
+            <div>
+              <div style="font-weight:700; color:var(--text-primary);">COUCHE 2 — Traitement & Enrichissement</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">analyze_extraction.py · analyse.py · Prophet</div>
+            </div>
+          </div>
+          <span class="accordion-chevron" id="chevron-c2">▾</span>
+        </div>
+        <div id="body-c2" class="accordion-body">
+          <div style="margin-bottom:16px;">
+            <div style="font-weight:600; color:#fcd34d; margin-bottom:12px;">🔍 Normalisation — analyze_extraction.py</div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:16px;">
+              <div style="background:rgba(59,130,246,0.1); border-radius:8px; padding:12px; text-align:center; font-size:0.8rem;">
+                <div style="font-size:1.3rem; margin-bottom:6px;">🔢</div>
+                <div style="color:#93c5fd; font-weight:600;">Quantitatives</div>
+                <div style="color:var(--text-muted); margin-top:4px;">Âge, Ct, délai</div>
+              </div>
+              <div style="background:rgba(16,185,129,0.1); border-radius:8px; padding:12px; text-align:center; font-size:0.8rem;">
+                <div style="font-size:1.3rem; margin-bottom:6px;">🏷️</div>
+                <div style="color:#6ee7b7; font-weight:600;">Nominales</div>
+                <div style="color:var(--text-muted); margin-top:4px;">Région, lésion</div>
+              </div>
+              <div style="background:rgba(245,158,11,0.1); border-radius:8px; padding:12px; text-align:center; font-size:0.8rem;">
+                <div style="font-size:1.3rem; margin-bottom:6px;">⚡</div>
+                <div style="color:#fcd34d; font-weight:600;">Binaires</div>
+                <div style="color:var(--text-muted); margin-top:4px;">Vaccin, PCR+</div>
+              </div>
+              <div style="background:rgba(139,92,246,0.1); border-radius:8px; padding:12px; text-align:center; font-size:0.8rem;">
+                <div style="font-size:1.3rem; margin-bottom:6px;">📅</div>
+                <div style="color:#c4b5fd; font-weight:600;">Temporelles</div>
+                <div style="color:var(--text-muted); margin-top:4px;">Date, semaine</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div style="font-weight:600; color:#fcd34d; margin-bottom:12px;">📈 Analyse — analyse.py</div>
+            <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+              Nettoyage données (imputations, détection aberrantes) · Calcul indicateurs agrégés (incidence, positivité, sévérité) · Prévisions temporelles (<strong style="color:#c4b5fd;">Prophet</strong>, Exponential Smoothing) · Export par niveaux : local, national, international · Fichiers : <code style="color:#fbbf24;">data_local.csv</code> · <code style="color:#fbbf24;">data_national.csv</code> · <code style="color:#fbbf24;">data_international.csv</code> · <code style="color:#fbbf24;">national_forecast.csv</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div onclick="toggleAccordion('c3')" class="accordion-header">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="width:40px; height:40px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">🎨</div>
+            <div>
+              <div style="font-weight:700; color:var(--text-primary);">COUCHE 3 — Présentation & Déploiement</div>
+              <div style="font-size:0.8rem; color:var(--text-muted);">dashboard_app.py · Streamlit · Plotly</div>
+            </div>
+          </div>
+          <span class="accordion-chevron" id="chevron-c3">▾</span>
+        </div>
+        <div id="body-c3" class="accordion-body">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+              <div style="font-weight:600; color:#6ee7b7; margin-bottom:12px;">✨ Dashboard Interactif</div>
+              <div style="font-size:0.83rem; color:var(--text-secondary); line-height:1.8;">
+                ✅ Interface web responsive<br>
+                ✅ Filtres temps quasi-réel (région, semaine, pathogène)<br>
+                ✅ <strong style="color:var(--text-primary);">14+ visualisations interactives</strong><br>
+                ✅ KPI animés avec codes couleur<br>
+                ✅ Chargement &lt; 2 secondes (cache Streamlit)<br>
+                ✅ Exports CSV / PNG
+              </div>
+            </div>
+            <div>
+              <div style="font-weight:600; color:#6ee7b7; margin-bottom:12px;">📊 Visualisations Disponibles</div>
+              <div style="font-size:0.83rem; color:var(--text-secondary); line-height:1.8;">
+                📈 Incidence par semaine (ligne)<br>
+                🗺️ Heatmap positivité (région/semaine)<br>
+                🔮 Prévision Prophet 12 semaines<br>
+                📊 Distribution démographique<br>
+                🌍 Comparaisons internationales<br>
+                + 9 autres graphiques
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-switch" class="section">
+      <div class="page-title">🔀 Switch Synthétique ↔ Réel</div>
+      <div class="page-subtitle">Mécanisme clé · 1 variable d'environnement · Sécurité by design</div>
+
+      <div class="alert alert-orange">
+        <span>🔑</span>
+        <span><strong>Concept Central :</strong> Le switch <code>DATA_MODE</code> est la pièce maîtresse de l'architecture. Il permet de passer instantanément entre données fictives (développement) et données réelles CRF (production), sans modifier le code.</span>
+      </div>
+
+      <div class="switch-viz">
+        <div class="switch-mode synthetic">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+            <div style="font-size:1.8rem;">🔄</div>
+            <div>
+              <div style="font-weight:700; color:#fcd34d; font-size:1.1rem;">MODE SYNTHÉTIQUE</div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">DATA_MODE = "synthetic"</div>
+            </div>
+            <span class="tag tag-orange" style="margin-left:auto;">Défaut</span>
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-secondary); line-height:1.8; margin-bottom:16px;">
+            ✅ 900 cas fictifs réalistes<br>
+            ✅ Zéro risque RGPD<br>
+            ✅ Tests sans données sensibles<br>
+            ✅ Idéal pour développement & démo<br>
+            ✅ Saisonnalité réaliste incluse
+          </div>
+          <div style="background: rgba(0,0,0,0.3); border-radius:8px; padding:12px; font-family:monospace; font-size:0.78rem; color:#fde68a;">
+            export DATA_MODE=synthetic<br>
+            <span style="color:#64748b;"># → rdmStats.generate_synthetic_data()</span>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; font-size:1.8rem; color:var(--text-muted); padding:0 8px; flex-shrink:0;">⇄</div>
+
+        <div class="switch-mode real">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+            <div style="font-size:1.8rem;">🚨</div>
+            <div>
+              <div style="font-weight:700; color:#6ee7b7; font-size:1.1rem;">MODE RÉEL</div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">DATA_MODE = "real"</div>
+            </div>
+            <span class="tag tag-green" style="margin-left:auto;">Production</span>
+          </div>
+          <div style="font-size:0.85rem; color:var(--text-secondary); line-height:1.8; margin-bottom:16px;">
+            ✅ Vraies données CRF patients<br>
+            ✅ Après validation RGPD<br>
+            ✅ Environnement production<br>
+            ✅ Secret GitHub (sécurisé)<br>
+            ✅ Données anonymisées versionnées
+          </div>
+          <div style="background: rgba(0,0,0,0.3); border-radius:8px; padding:12px; font-family:monospace; font-size:0.78rem; color:#a7f3d0;">
+            export DATA_MODE=real<br>
+            <span style="color:#64748b;"># → pd.read_json("extraction_real.json")</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <div class="section-title" style="margin:0;">💻 Implémentation — Code Complet</div>
+          <span class="tag tag-blue">dashboard_app.py · ligne ~50</span>
+        </div>
+        <div class="code-block">
+          <button class="copy-btn" onclick="copyCode('code-switch')">📋 Copier</button>
+          <div id="code-switch"><span class="code-comment"># ===================================================</span>
+<span class="code-comment"># SWITCH SYNTHÉTIQUE ↔ RÉEL — Cœur de l'architecture</span>
+<span class="code-comment"># ===================================================</span>
+
+<span class="code-keyword">import</span> os
+<span class="code-keyword">import</span> pandas <span class="code-keyword">as</span> pd
+<span class="code-keyword">import</span> rdmStats
+
+<span class="code-comment"># 1 ligne de code pour basculer entre les modes</span>
+<span class="code-var">MODE</span> = os.<span class="code-func">getenv</span>(<span class="code-string">"DATA_MODE"</span>, <span class="code-string">"synthetic"</span>)  <span class="code-comment">← Variable env</span>
+
+<span class="code-keyword">if</span> MODE == <span class="code-string">"synthetic"</span>:
+    <span class="code-comment"># Dev/Test : 900 cas fictifs (rapide, sûr, zéro RGPD)</span>
+    data = rdmStats.<span class="code-func">generate_synthetic_data</span>()
+    <span class="code-func">print</span>(<span class="code-string">"🔄 Mode SYNTHÉTIQUE activé (développement)"</span>)
+
+<span class="code-keyword">else</span>:
+    <span class="code-comment"># Production : vraies données CRF après nettoyage RGPD</span>
+    data = pd.<span class="code-func">read_json</span>(<span class="code-string">"extraction_real.json"</span>)
+    <span class="code-func">print</span>(<span class="code-string">"🚨 Mode RÉEL activé (production)"</span>)
+
+<span class="code-comment"># Le reste du pipeline est identique dans les deux cas !</span>
+<span class="code-comment"># Normalisation → Analyse → Dashboard → Streamlit</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🌐 Environnements de Déploiement</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Environnement</th>
+              <th>Variable</th>
+              <th>Source données</th>
+              <th>Utilisateurs</th>
+              <th>Sécurité</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag tag-orange">Local Dev</span></td>
+              <td><code style="color:#fbbf24;">DATA_MODE=synthetic</code></td>
+              <td>rdmStats.py (fictif)</td>
+              <td>Développeurs</td>
+              <td><span style="color:var(--accent-green)">✅ Aucun risque</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-blue">Staging</span></td>
+              <td><code style="color:#fbbf24;">DATA_MODE=synthetic</code></td>
+              <td>rdmStats.py (fictif)</td>
+              <td>QA / Validation</td>
+              <td><span style="color:var(--accent-green)">✅ Aucun risque</span></td>
+            </tr>
+            <tr>
+              <td><span class="tag tag-green">Production</span></td>
+              <td><code style="color:#fbbf24;">DATA_MODE=real</code></td>
+              <td>CRF réels (anonymisés)</td>
+              <td>Épidémiologistes</td>
+              <td><span style="color:var(--accent-orange)">⚠️ Après RGPD</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="sec-niveaux" class="section">
+      <div class="page-title">📊 Les 3 Niveaux de Décision</div>
+      <div class="page-subtitle">Local · National · International · Données agrégées par niveau</div>
+
+      <div class="level-grid" style="margin-bottom:28px;">
+        <div class="level-card local">
+          <div style="font-size:2.2rem; margin-bottom:12px;">🏥</div>
+          <div style="font-weight:700; color:#93c5fd; font-size:1.1rem; margin-bottom:8px;">Niveau Local</div>
+          <div style="font-size:0.75rem; color:#3b82f6; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; font-weight:600;">data_local.csv</div>
+          <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+            Données au niveau cas individuel<br>
+            Détail complet des patients<br>
+            ~1500 cas (capacité MVP)<br>
+            Utilisé par : <strong style="color:#93c5fd;">Épidémiologistes</strong>
+          </div>
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(59,130,246,0.2);">
+            <div style="font-size:0.78rem; color:var(--text-muted);">Variables disponibles</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary); margin-top:4px;">Âge · Sexe · Région · PCR · Vaccin · Comorbidités · Délais · Sévérité</div>
+          </div>
+        </div>
+
+        <div class="level-card national">
+          <div style="font-size:2.2rem; margin-bottom:12px;">🗺️</div>
+          <div style="font-weight:700; color:#6ee7b7; font-size:1.1rem; margin-bottom:8px;">Niveau National</div>
+          <div style="font-size:0.75rem; color:#10b981; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; font-weight:600;">data_national.csv</div>
+          <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+            Agrégations régionales<br>
+            Prévisions Prophet 12 semaines<br>
+            Tendances et alertes<br>
+            Utilisé par : <strong style="color:#6ee7b7;">Gestionnaires de crise</strong>
+          </div>
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(16,185,129,0.2);">
+            <div style="font-size:0.78rem; color:var(--text-muted);">Fichier prévisions</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary); margin-top:4px;">national_forecast.csv · 12 semaines · Intervalle de confiance 80/90%</div>
+          </div>
+        </div>
+
+        <div class="level-card intl">
+          <div style="font-size:2.2rem; margin-bottom:12px;">🌍</div>
+          <div style="font-weight:700; color:#c4b5fd; font-size:1.1rem; margin-bottom:8px;">Niveau International</div>
+          <div style="font-size:0.75rem; color:#8b5cf6; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; font-weight:600;">data_international.csv</div>
+          <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+            Comparaisons entre pays<br>
+            ~5 pays (phase MVP)<br>
+            Benchmarking épidémio<br>
+            Utilisé par : <strong style="color:#c4b5fd;">Scientifiques & Chercheurs</strong>
+          </div>
+          <div style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(139,92,246,0.2);">
+            <div style="font-size:0.78rem; color:var(--text-muted);">Métriques comparées</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary); margin-top:4px;">Incidence · Positivité · Létalité · Couverture vaccinale</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">👥 Profils Utilisateurs</div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:18px; border-top:2px solid #3b82f6;">
+            <div style="font-size:1.5rem; margin-bottom:8px;">👨‍⚕️</div>
+            <div style="font-weight:700; color:#93c5fd; margin-bottom:8px;">Épidémiologistes</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+              Monitoring des cas<br>
+              Analyse de profils<br>
+              Export données brutes<br>
+              <span style="color:#3b82f6;">→ Niveau Local</span>
+            </div>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:18px; border-top:2px solid #10b981;">
+            <div style="font-size:1.5rem; margin-bottom:8px;">👨‍💼</div>
+            <div style="font-weight:700; color:#6ee7b7; margin-bottom:8px;">Gestionnaires</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+              KPI et alertes<br>
+              Prévisions 12 sem<br>
+              Rapports automatisés<br>
+              <span style="color:#10b981;">→ Niveau National</span>
+            </div>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:18px; border-top:2px solid #8b5cf6;">
+            <div style="font-size:1.5rem; margin-bottom:8px;">🔬</div>
+            <div style="font-weight:700; color:#c4b5fd; margin-bottom:8px;">Scientifiques</div>
+            <div style="font-size:0.82rem; color:var(--text-secondary); line-height:1.7;">
+              Comparaisons pays<br>
+              Données exportables<br>
+              Analyses statistiques<br>
+              <span style="color:#8b5cf6;">→ Niveau International</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🎨 Interface Dashboard — Vue d'ensemble</div>
+        <div style="background: #060d18; border:1px solid var(--border); border-radius:12px; padding:20px; font-family: 'JetBrains Mono', monospace; font-size:0.78rem; color:var(--text-secondary); line-height:2;">
+          ┌─── <span style="color:#93c5fd;">EpiField Dashboard</span> · MPXV Interactive ────────────────────┐<br>
+          │ &nbsp;&nbsp;&nbsp;                                                                    │<br>
+          │ &nbsp;&nbsp;<span style="color:#fcd34d;">[Filtre Région ▼]</span> &nbsp;<span style="color:#fcd34d;">[Filtre Semaine ▼]</span> &nbsp;<span style="color:#fcd34d;">[Filtre Pathogène ▼]</span>    │<br>
+          │ &nbsp;&nbsp;&nbsp;                                                                    │<br>
+          │ &nbsp;&nbsp;<span style="color:#a7f3d0;">┌──────────────────────────────────────────────────────────┐</span>   │<br>
+          │ &nbsp;&nbsp;<span style="color:#a7f3d0;">│</span> KPI Cards &nbsp;&nbsp;<span style="color:#6ee7b7;">✅ 1500 cas</span> │ <span style="color:#fcd34d;">😷😷😷 68% sévérité</span> │ <span style="color:#f87171;">📈 +15%</span>   <span style="color:#a7f3d0;">│</span>   │<br>
+          │ &nbsp;&nbsp;<span style="color:#a7f3d0;">└──────────────────────────────────────────────────────────┘</span>   │<br>
+          │ &nbsp;&nbsp;&nbsp;                                                                    │<br>
+          │ &nbsp;&nbsp;<span style="color:#93c5fd;">📈 Incidence par semaine (ligne interactive + zoom)</span>           │<br>
+          │ &nbsp;&nbsp;<span style="color:#93c5fd;">🗺️ Heatmap positivité (région × semaine — couleurs)</span>          │<br>
+          │ &nbsp;&nbsp;<span style="color:#93c5fd;">🔮 Prévision Prophet 12 semaines (zone confiance grise)</span>      │<br>
+          │ &nbsp;&nbsp;<span style="color:#93c5fd;">📊 + 11 autres graphiques interactifs Plotly</span>               │<br>
+          │ &nbsp;&nbsp;&nbsp;                                                                    │<br>
+          │ &nbsp;&nbsp;<span style="color:#fcd34d;">💾 Export CSV</span> │ <span style="color:#fcd34d;">📸 Capture PNG</span> │ <span style="color:#fcd34d;">🌐 Partager URL</span>           │<br>
+          └─────────────────────────────────────────────────────────────────┘
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-infra" class="section">
+      <div class="page-title">☁️ Infrastructure & Déploiement</div>
+      <div class="page-subtitle">GitHub + Streamlit Community Cloud · Serverless · 100% gratuit</div>
+
+      <div class="alert alert-green">
+        <span>💰</span>
+        <span><strong>Budget total infrastructure MVP : 0 € </strong>— GitHub (gratuit) + Streamlit Community Cloud (gratuit). Aucun serveur, aucun Docker, aucune équipe DevOps requise.</span>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🏗️ Architecture Cloud Simplifiée</div>
+        <div style="display:flex; align-items:stretch; gap:20px; margin-bottom:20px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:200px; background: rgba(244,63,94,0.07); border:1px solid rgba(244,63,94,0.25); border-radius:14px; padding:24px;">
+            <div style="font-size:2rem; margin-bottom:12px;">💾</div>
+            <div style="font-weight:700; color:#fda4af; margin-bottom:12px; font-size:1rem;">GitHub Repository</div>
+            <div style="font-size:0.83rem; color:var(--text-secondary); line-height:1.8;">
+              ✅ Code Python + Scripts<br>
+              ✅ Données brutes + extraction<br>
+              ✅ requirements.txt + runtime.txt<br>
+              ✅ Secrets : Auth tokens, API keys<br>
+              ✅ Versioning complet (Git)
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; font-size:1.5rem; color:var(--text-muted); flex-shrink:0;">
+            <div style="text-align:center;">
+              <div>→</div>
+              <div style="font-size:0.65rem; color:var(--text-muted); white-space:nowrap; margin-top:4px;">git push</div>
+            </div>
+          </div>
+          <div style="flex:1; min-width:200px; background: rgba(244,63,94,0.07); border:1px solid rgba(244,63,94,0.25); border-radius:14px; padding:24px;">
+            <div style="font-size:2rem; margin-bottom:12px;">☁️</div>
+            <div style="font-weight:700; color:#fda4af; margin-bottom:12px; font-size:1rem;">Streamlit Community Cloud</div>
+            <div style="font-size:0.83rem; color:var(--text-secondary); line-height:1.8;">
+              ✅ Serverless Python runtime 3.12<br>
+              ✅ Auto-redéploiement à chaque push<br>
+              ✅ Cache intégré (session storage)<br>
+              ✅ Domaine public gratuit<br>
+              ⚠️ Limites : 1 Go RAM (~10k cas ok)
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; font-size:1.5rem; color:var(--text-muted); flex-shrink:0;">
+            <div style="text-align:center;">
+              <div>→</div>
+              <div style="font-size:0.65rem; color:var(--text-muted); white-space:nowrap; margin-top:4px;">HTTPS public</div>
+            </div>
+          </div>
+          <div style="flex:1; min-width:200px; background: rgba(132,204,22,0.07); border:1px solid rgba(132,204,22,0.25); border-radius:14px; padding:24px;">
+            <div style="font-size:2rem; margin-bottom:12px;">👥</div>
+            <div style="font-weight:700; color:#d9f99d; margin-bottom:12px; font-size:1rem;">Utilisateurs Finaux</div>
+            <div style="font-size:0.83rem; color:var(--text-secondary); line-height:1.8;">
+              ✅ Accès URL publique 24/7<br>
+              ✅ Navigateur web (aucun install)<br>
+              ✅ Tablette + PC compatible<br>
+              ✅ Exports CSV/PNG intégrés
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🚀 Pipeline de Mise en Production — 5 Étapes</div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; align-items:flex-start; gap:16px; padding:16px; background:var(--bg-elevated); border-radius:10px;">
+            <div style="width:32px; height:32px; background:rgba(59,130,246,0.2); border:1px solid rgba(59,130,246,0.4); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#93c5fd; flex-shrink:0;">1</div>
+            <div>
+              <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Push GitHub</div>
+              <div style="font-size:0.82rem; color:var(--text-muted); font-family:monospace;">git add . && git commit -m "Extraction MPXV v2.0" && git push origin main</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:16px; padding:16px; background:var(--bg-elevated); border-radius:10px;">
+            <div style="width:32px; height:32px; background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.4); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#6ee7b7; flex-shrink:0;">2</div>
+            <div>
+              <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Déclenchement Automatique Streamlit</div>
+              <div style="font-size:0.82rem; color:var(--text-muted);">GitHub détecte le push → Streamlit re-build l'application automatiquement</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:16px; padding:16px; background:var(--bg-elevated); border-radius:10px;">
+            <div style="width:32px; height:32px; background:rgba(245,158,11,0.2); border:1px solid rgba(245,158,11,0.4); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#fcd34d; flex-shrink:0;">3</div>
+            <div>
+              <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Exécution Scripts Backend</div>
+              <div style="font-size:0.82rem; color:var(--text-muted);">Python charge le repo → main.py → analyse.py → Prévisions recalculées</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:16px; padding:16px; background:var(--bg-elevated); border-radius:10px;">
+            <div style="width:32px; height:32px; background:rgba(139,92,246,0.2); border:1px solid rgba(139,92,246,0.4); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#c4b5fd; flex-shrink:0;">4</div>
+            <div>
+              <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">Mise à Jour des Données</div>
+              <div style="font-size:0.82rem; color:var(--text-muted);">CSV rechargés en cache Streamlit · KPI recalculés · Graphiques actualisés</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:flex-start; gap:16px; padding:16px; background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:10px;">
+            <div style="width:32px; height:32px; background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.4); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; color:#6ee7b7; flex-shrink:0;">5</div>
+            <div>
+              <div style="font-weight:600; color:#6ee7b7; margin-bottom:4px;">✅ Application Live — Accessible Publiquement</div>
+              <div style="font-size:0.82rem; color:var(--text-muted);">URL toujours accessible · Données fraîches · ⏱️ Temps total : <strong style="color:#6ee7b7;">~3–5 minutes</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">💰 Détail des Coûts</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Aspect</th><th>Détail</th><th>Coût MVP</th><th>Coût M6+</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong style="color:var(--text-primary)">Serveurs</strong></td>
+              <td>Streamlit Community Cloud</td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--text-primary)">Git / Repo</strong></td>
+              <td>GitHub (public ou privé)</td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--text-primary)">Domaine web</strong></td>
+              <td>*.streamlit.app</td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--text-primary)">Dev Python</strong></td>
+              <td>Python 3.12 + pandas/Plotly/Prophet</td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+            </tr>
+            <tr>
+              <td><strong style="color:var(--text-primary)">Base de données</strong></td>
+              <td>CSV (MVP) → PostgreSQL (futur)</td>
+              <td><span style="color:var(--accent-green)">0 €</span></td>
+              <td style="color:var(--accent-orange)">À définir</td>
+            </tr>
+            <tr style="background: rgba(16,185,129,0.05);">
+              <td><strong style="color:#6ee7b7; font-size:1rem;">TOTAL INFRA</strong></td>
+              <td></td>
+              <td><strong style="color:var(--accent-green); font-size:1.1rem;">0 €</strong></td>
+              <td style="color:var(--accent-orange)">TBD</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="sec-roadmap" class="section">
+      <div class="page-title">🚀 Roadmap & Prochaines Étapes</div>
+      <div class="page-subtitle">Planning recommandé · 12 mois · Du MVP à la plateforme complète</div>
+
+      <div class="card">
+        <div class="section-title">📅 Timeline de Déploiement</div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-line">
+            <div class="roadmap-dot" style="border-color:#3b82f6; background:rgba(59,130,246,0.3);"></div>
+            <div class="roadmap-connector" style="background:linear-gradient(#3b82f6,#10b981);"></div>
+          </div>
+          <div class="roadmap-content">
+            <div class="roadmap-phase" style="color:#93c5fd;">SEMAINE 1–2</div>
+            <div class="roadmap-title">Validation Architecture</div>
+            <div class="roadmap-items-list">
+              ✅ Chef de projet présente le schéma en réunion<br>
+              ✅ Équipe IT valide les choix techniques<br>
+              ✅ Feedback et ajustements mineurs<br>
+              ✅ Points RGPD clarifiés (données CRF)
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-line">
+            <div class="roadmap-dot" style="border-color:#10b981; background:rgba(16,185,129,0.3);"></div>
+            <div class="roadmap-connector" style="background:linear-gradient(#10b981,#f59e0b);"></div>
+          </div>
+          <div class="roadmap-content">
+            <div class="roadmap-phase" style="color:#6ee7b7;">SEMAINE 3–4</div>
+            <div class="roadmap-title">Planification Sprints</div>
+            <div class="roadmap-items-list">
+              ✅ Mapping architecture → user stories<br>
+              ✅ Estimation effort par couche<br>
+              ✅ Priorités métier confirmées<br>
+              ✅ Kickoff équipe dev (2–3 devs + 1 archi)
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-line">
+            <div class="roadmap-dot" style="border-color:#f59e0b; background:rgba(245,158,11,0.3);"></div>
+            <div class="roadmap-connector" style="background:linear-gradient(#f59e0b,#8b5cf6);"></div>
+          </div>
+          <div class="roadmap-content">
+            <div class="roadmap-phase" style="color:#fcd34d;">MOIS 1 — MVP</div>
+            <div class="roadmap-title">🎯 Dashboard Production</div>
+            <div class="roadmap-items-list">
+              ✅ Stabilisation extraction CRF Word<br>
+              ✅ Pipeline complet opérationnel<br>
+              ✅ Déploiement dashboard Streamlit<br>
+              ✅ Données synthétiques validées
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-line">
+            <div class="roadmap-dot" style="border-color:#8b5cf6; background:rgba(139,92,246,0.3);"></div>
+            <div class="roadmap-connector" style="background:linear-gradient(#8b5cf6,#06b6d4);"></div>
+          </div>
+          <div class="roadmap-content">
+            <div class="roadmap-phase" style="color:#c4b5fd;">MOIS 2</div>
+            <div class="roadmap-title">Tests & Optimisations</div>
+            <div class="roadmap-items-list">
+              ✅ Validation utilisateurs finaux<br>
+              ✅ Intégration données CRF réelles<br>
+              ✅ Tuning performance (cache, requêtes)<br>
+              ✅ Documentation opérationnelle
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-line">
+            <div class="roadmap-dot" style="border-color:#06b6d4; background:rgba(6,182,212,0.3);"></div>
+            <div class="roadmap-connector" style="background:linear-gradient(#06b6d4,#f43f5e);"></div>
+          </div>
+          <div class="roadmap-content">
+            <div class="roadmap-phase" style="color:#67e8f9;">MOIS 3–6</div>
+            <div class="roadmap-title">Scalabilité Multi-Pathogènes</div>
+            <div class="roadmap-items-list">
+              ✅ Intégration 2e pathogène (grippe/COVID)<br>
+              ✅ Migration CSV → PostgreSQL<br>
+              ✅ API GraphQL pour requêtes avancées<br>
+              ✅ Alertes email/SMS automatisées
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-item">
+          <div class="roadmap-line">
+            <div class="roadmap-dot" style="border-color:#f43f5e; background:rgba(244,63,94,0.3);"></div>
+          </div>
+          <div class="roadmap-content">
+            <div class="roadmap-phase" style="color:#fda4af;">MOIS 6+</div>
+            <div class="roadmap-title">Plateforme Complète</div>
+            <div class="roadmap-items-list">
+              ✅ Infrastructure Docker Compose (données sensibles)<br>
+              ✅ Auth OIDC / SSO (contrôle accès)<br>
+              ✅ ML-Ops : retraining auto des prévisions<br>
+              ✅ Historique complet + audit trail
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📊 Indicateurs de Succès</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Indicateur</th><th>Cible</th><th>Timeline</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Dashboard accessible (URL public)</td>
+              <td><span class="tag tag-green">✅</span></td>
+              <td>Semaine 4</td>
+            </tr>
+            <tr>
+              <td>Tous les graphiques actifs (14+)</td>
+              <td><span class="tag tag-green">✅</span></td>
+              <td>Semaine 4</td>
+            </tr>
+            <tr>
+              <td>Extraction CRF automatisée</td>
+              <td><span class="tag tag-green">✅</span></td>
+              <td>Semaine 3</td>
+            </tr>
+            <tr>
+              <td>Prévisions 12 semaines (Prophet)</td>
+              <td><span class="tag tag-green">✅</span></td>
+              <td>Semaine 3</td>
+            </tr>
+            <tr>
+              <td>Utilisateurs finaux testent</td>
+              <td><span class="tag tag-blue">🔄</span></td>
+              <td>Mois 2</td>
+            </tr>
+            <tr>
+              <td>Intégration 2e pathogène</td>
+              <td><span class="tag tag-orange">⏳</span></td>
+              <td>Mois 3</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="sec-reference" class="section">
+      <div class="page-title">📋 Quick Reference</div>
+      <div class="page-subtitle">Guide pratique · Points clés · Glossaire · Fichiers du projet</div>
+
+      <div class="card">
+        <div class="section-title">📂 Fichiers Clés du Projet</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Fichier</th><th>Type</th><th>Rôle</th><th>Mise à jour</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code style="color:#fbbf24;">main.py</code></td>
+              <td><span class="tag tag-purple">Script</span></td>
+              <td>Extraction CRF Word → JSON/CSV</td>
+              <td>Manuel (push fichiers)</td>
+            </tr>
+            <tr>
+              <td><code style="color:#fbbf24;">dashboard_app.py</code></td>
+              <td><span class="tag tag-blue">App</span></td>
+              <td>Interface web Streamlit principale</td>
+              <td>Auto (Streamlit Cloud)</td>
+            </tr>
+            <tr>
+              <td><code style="color:#fbbf24;">rdmStats.py</code></td>
+              <td><span class="tag tag-orange">Script</span></td>
+              <td>Données synthétiques 900 cas</td>
+              <td>Test / démo</td>
+            </tr>
+            <tr>
+              <td><code style="color:#fbbf24;">analyze_extraction.py</code></td>
+              <td><span class="tag tag-orange">Script</span></td>
+              <td>Catalogue variables + classification</td>
+              <td>Auto (pipeline)</td>
+            </tr>
+            <tr>
+              <td><code style="color:#fbbf24;">analyse.py</code></td>
+              <td><span class="tag tag-orange">Script</span></td>
+              <td>Prévisions Prophet + agrégations</td>
+              <td>Auto (pipeline)</td>
+            </tr>
+            <tr>
+              <td><code style="color:#fbbf24;">data_local.csv</code></td>
+              <td><span class="tag tag-green">Data</span></td>
+              <td>Cas individuels (niveau local)</td>
+              <td>Auto (pipeline)</td>
+            </tr>
+            <tr>
+              <td><code style="color:#fbbf24;">data_national.csv</code></td>
+              <td><span class="tag tag-green">Data</span></td>
+              <td>Agrégations régionales nationales</td>
+              <td>Auto (pipeline)</td>
+            </tr>
+            <tr>
+              <td><code style="color:#fbbf24;">national_forecast.csv</code></td>
+              <td><span class="tag tag-green">Data</span></td>
+              <td>Prévisions 12 semaines + confiance</td>
+              <td>Auto (pipeline)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🛠️ Stack Technique</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:16px; text-align:center;">
+            <div style="font-size:1.6rem; margin-bottom:8px;">🐍</div>
+            <div style="font-weight:700; color:#93c5fd;">Python 3.12+</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">Langage principal</div>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:16px; text-align:center;">
+            <div style="font-size:1.6rem; margin-bottom:8px;">🎈</div>
+            <div style="font-weight:700; color:#ff4b4b;">Streamlit</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">Dashboard web</div>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:16px; text-align:center;">
+            <div style="font-size:1.6rem; margin-bottom:8px;">📊</div>
+            <div style="font-weight:700; color:#636efa;">Plotly</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">Graphiques interactifs</div>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:16px; text-align:center;">
+            <div style="font-size:1.6rem; margin-bottom:8px;">🔮</div>
+            <div style="font-weight:700; color:#c4b5fd;">Prophet</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">Prévisions temporelles</div>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:16px; text-align:center;">
+            <div style="font-size:1.6rem; margin-bottom:8px;">🐼</div>
+            <div style="font-weight:700; color:#fcd34d;">pandas</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">Traitement données</div>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:10px; padding:16px; text-align:center;">
+            <div style="font-size:1.6rem; margin-bottom:8px;">📦</div>
+            <div style="font-weight:700; color:#f87171;">python-docx</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">Parsing CRF Word</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📖 Glossaire</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div style="background:var(--bg-elevated); border-radius:8px; padding:14px;">
+            <strong style="color:var(--accent-blue);">CRF</strong>
+            <span style="color:var(--text-secondary); font-size:0.85rem;"> — Case Report Form. Formulaire médical de collecte des données patients.</span>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:8px; padding:14px;">
+            <strong style="color:var(--accent-blue);">MPXV</strong>
+            <span style="color:var(--text-secondary); font-size:0.85rem;"> — Monkeypox Virus. Pathogène cible du prototype EpiField.</span>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:8px; padding:14px;">
+            <strong style="color:var(--accent-orange);">DATA_MODE</strong>
+            <span style="color:var(--text-secondary); font-size:0.85rem;"> — Variable d'environnement contrôlant le switch synthétique ↔ réel.</span>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:8px; padding:14px;">
+            <strong style="color:var(--accent-green);">Streamlit</strong>
+            <span style="color:var(--text-secondary); font-size:0.85rem;"> — Framework Python pour créer des dashboards web (déploiement cloud gratuit).</span>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:8px; padding:14px;">
+            <strong style="color:var(--accent-purple);">Prophet</strong>
+            <span style="color:var(--text-secondary); font-size:0.85rem;"> — Modèle de prévision temporelle (Facebook/Meta). Détecte tendances et saisonnalité.</span>
+          </div>
+          <div style="background:var(--bg-elevated); border-radius:8px; padding:14px;">
+            <strong style="color:var(--accent-blue);">Serverless</strong>
+            <span style="color:var(--text-secondary); font-size:0.85rem;"> — Déploiement sans gestion de serveur. Auto-scaling, maintenance réduite.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-contact" class="section">
+      <div class="page-title">📞 Contact & Ressources</div>
+      <div class="page-subtitle">Liens · Documents · Prochaines étapes · Équipe projet</div>
+
+      <div class="alert alert-blue">
+        <span>📌</span>
+        <span><strong>Recommandation :</strong> Pour toute présentation à la gouvernance IT, utiliser <code>RESUME_EXECUTIF.md</code> + <code>SCHEMA_ARCHITECTURE.mmd</code>. Pour briefer l'équipe : <code>QUICK_REFERENCE.md</code>.</span>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📚 Documents Livrables</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; align-items:center; gap:16px; padding:14px 18px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #fcd34d; transition:all 0.2s; cursor:default;" onmouseover="this.style.borderLeftColor='#f59e0b'" onmouseout="this.style.borderLeftColor='#fcd34d'">
+            <span style="font-size:1.3rem;">⭐</span>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:var(--text-primary);">RESUME_EXECUTIF.md</div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">Synthèse 1 page décisionnelle · Pour chef de projet</div>
+            </div>
+            <span class="tag tag-orange">5 min</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:16px; padding:14px 18px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #3b82f6;">
+            <span style="font-size:1.3rem;">⭐</span>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:var(--text-primary);">SCHEMA_ARCHITECTURE.mmd</div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">Schéma technique Mermaid complet · 5 couches colorées</div>
+            </div>
+            <span class="tag tag-blue">10 min</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:16px; padding:14px 18px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #10b981;">
+            <span style="font-size:1.3rem;">⭐</span>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:var(--text-primary);">ARCHITECTURE_TECHNIQUE.md</div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">Note explicative 2 pages · Documentation référence</div>
+            </div>
+            <span class="tag tag-green">20 min</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:16px; padding:14px 18px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #8b5cf6;">
+            <span style="font-size:1.3rem;">📋</span>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:var(--text-primary);">QUICK_REFERENCE.md</div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">Guide affichable · Poster A3 équipe · Exemples code Python</div>
+            </div>
+            <span class="tag tag-purple">10 min</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:16px; padding:14px 18px; background:var(--bg-elevated); border-radius:10px; border-left:3px solid #64748b;">
+            <span style="font-size:1.3rem;">📘</span>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:var(--text-primary);">LIVRABLE_COMPLET.md + README_LIVRABLES.md</div>
+              <div style="font-size:0.78rem; color:var(--text-muted);">Synthèse gouvernance IT · Index + FAQ 7 questions</div>
+            </div>
+            <span class="tag" style="background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.3);">Complet</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">✅ Prochaines Actions Recommandées</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div style="background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.2); border-radius:10px; padding:16px;">
+            <div style="font-weight:700; color:#93c5fd; margin-bottom:8px;">📅 Cette semaine</div>
+            <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+              → Présenter schéma en réunion (30 min)<br>
+              → Partager RESUME_EXECUTIF.md à l'équipe<br>
+              → Valider go/no-go architecture
+            </div>
+          </div>
+          <div style="background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); border-radius:10px; padding:16px;">
+            <div style="font-weight:700; color:#6ee7b7; margin-bottom:8px;">📅 Semaine prochaine</div>
+            <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+              → Réunion fine-tuning architecture IT<br>
+              → Clarifier points RGPD données CRF<br>
+              → Identifier l'équipe de développement
+            </div>
+          </div>
+          <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.2); border-radius:10px; padding:16px;">
+            <div style="font-weight:700; color:#fcd34d; margin-bottom:8px;">📅 Semaine 2</div>
+            <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+              → Décision Go/No-go formalisée<br>
+              → Setup GitHub repository<br>
+              → Config Streamlit Community Cloud
+            </div>
+          </div>
+          <div style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.2); border-radius:10px; padding:16px;">
+            <div style="font-weight:700; color:#c4b5fd; margin-bottom:8px;">📅 Semaine 3–4</div>
+            <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.8;">
+              → Kickoff sprints développement<br>
+              → MVP pipeline opérationnel<br>
+              → Premiers tests utilisateurs
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="text-align:center; padding:32px;">
+        <div style="font-size:2.5rem; margin-bottom:16px;">🏥📊🚀</div>
+        <div style="font-size:1.1rem; font-weight:700; color:var(--text-primary); margin-bottom:8px;">EpiField — Architecture Technique v1.0</div>
+        <div style="color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">Avril 2026 · Créé par l'équipe Architecture EpiField</div>
+        <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;">
+          <span class="tag tag-green">✅ Livrable Complet & Validé</span>
+          <span class="tag tag-blue">Architecture Pragmatique</span>
+          <span class="tag tag-orange">MVP 3–4 Semaines</span>
+        </div>
+        <div class="divider"></div>
+        <div style="font-size:0.82rem; color:var(--text-muted); line-height:1.8;">
+          <strong style="color:#93c5fd;">Recommandation</strong> : ✅ Go for development<br>
+          <span style="font-style:italic;">Prochaine révision architecturale : Juillet 2026 (post-MVP)</span>
+        </div>
+      </div>
+    </section>
+      <div class="card">
+        <div class="section-title">🎨 Légende des Couches</div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 14px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:8px; font-size:0.82rem; color:#bfdbfe;">
+            <div style="width:12px;height:12px;background:#1e3a5f;border:2px solid #3b82f6;border-radius:2px;"></div>
+            Sources de données
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 14px; background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); border-radius:8px; font-size:0.82rem; color:#ddd6fe;">
+            <div style="width:12px;height:12px;background:#2d1b5e;border:2px solid #8b5cf6;border-radius:2px;"></div>
+            Couche Ingestion
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 14px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:8px; font-size:0.82rem; color:#fde68a;">
+            <div style="width:12px;height:12px;background:#3b2000;border:2px solid #f59e0b;border-radius:2px;"></div>
+            Couche Traitement
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 14px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); border-radius:8px; font-size:0.82rem; color:#a7f3d0;">
+            <div style="width:12px;height:12px;background:#0f2e1a;border:2px solid #10b981;border-radius:2px;"></div>
+            Couche Présentation
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 14px; background:rgba(244,63,94,0.1); border:1px solid rgba(244,63,94,0.3); border-radius:8px; font-size:0.82rem; color:#fda4af;">
+            <div style="width:12px;height:12px;background:#2d1020;border:2px solid #f43f5e;border-radius:2px;"></div>
+            Infrastructure
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding:8px 14px; background:rgba(245,158,11,0.15); border:2px solid rgba(245,158,11,0.5); border-radius:8px; font-size:0.82rem; color:#fde68a; font-weight:700;">
+            <div style="width:12px;height:12px;background:#3b2a00;border:3px solid #f59e0b;border-radius:2px;"></div>
+            🔀 Switch MODE (nœud central)
+          </div>
+        </div>
+      </div>
+
+  </main></div><script>
+  // Initialize Mermaid
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    themeVariables: {
+      background: '#060d18',
+      primaryColor: '#1e3a5f',
+      primaryTextColor: '#bfdbfe',
+      primaryBorderColor: '#3b82f6',
+      lineColor: '#3d5a7a',
+      secondaryColor: '#2d1b5e',
+      tertiaryColor: '#3b2000',
+      edgeLabelBackground: '#0d1520',
+      clusterBkg: '#111d2e'
+    },
+    flowchart: { useMaxWidth: true, curve: 'basis', padding: 20, htmlLabels: true },
+    securityLevel: 'loose'
+  });
+
+  // Navigation
+  function showSection(id, evt) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const sec = document.getElementById('sec-' + id);
+    if (sec) sec.classList.add('active');
+    if (evt && evt.currentTarget) {
+      evt.currentTarget.classList.add('active');
+    } else {
+      const nav = document.querySelector('.nav-item[data-section="' + id + '"]');
+      if (nav) nav.classList.add('active');
+    }
+    // If user opened the Architecture tab, initialize Mermaid now that element is visible
+    if (id === 'architecture') {
+      try {
+        const mermaids = document.querySelectorAll('#mermaid-container .mermaid');
+        mermaid.init(undefined, mermaids);
+        // enlarge container and cap svg height for readability
+        const mc = document.getElementById('mermaid-container');
+        if (mc) {
+          mc.style.minHeight = '700px';
+          mc.style.padding = '40px';
+        }
+        mermaids.forEach(m => {
+          const svg = m.querySelector('svg');
+          if (svg) {
+            svg.style.width = '100%';
+            svg.style.maxHeight = '75vh';
+            svg.style.height = 'auto';
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          }
+        });
+      } catch (e) {
+        console.error('Mermaid init error:', e);
+      }
+    }
+    // Close sidebar on mobile
+    if (window.innerWidth <= 900) {
+      document.getElementById('sidebar').classList.remove('open');
+    }
+    // Scroll to top
+    document.getElementById('main').scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
+
+  // Accordion
+  function toggleAccordion(id) {
+    const body = document.getElementById('body-' + id);
+    const chevron = document.getElementById('chevron-' + id);
+    const isOpen = body.classList.contains('open');
+    body.classList.toggle('open', !isOpen);
+    chevron.classList.toggle('open', !isOpen);
+  }
+
+  // Mobile sidebar
+  function toggleSidebar() {
+    return;
+  }
+
+  // Desktop sidebar collapse/expand
+  function toggleSidebarCollapse() {
+    return;
+    const sidebar = document.getElementById('sidebar');
+    const main = document.getElementById('main');
+    const toggle = document.getElementById('sidebar-toggle');
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+      sidebar.classList.remove('collapsed');
+      main.classList.remove('sidebar-collapsed');
+      toggle.textContent = '◀';
+      localStorage.setItem('sidebarCollapsed', 'false');
+    } else {
+      sidebar.classList.add('collapsed');
+      main.classList.add('sidebar-collapsed');
+      toggle.textContent = '▶';
+      localStorage.setItem('sidebarCollapsed', 'true');
+    }
+  }
+
+  // Restore sidebar collapse state on page load
+  window.addEventListener('DOMContentLoaded', function() {
+    return;
+    const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    if (isCollapsed) {
+      const sidebar = document.getElementById('sidebar');
+      const main = document.getElementById('main');
+      const toggle = document.getElementById('sidebar-toggle');
+      sidebar.classList.add('collapsed');
+      main.classList.add('sidebar-collapsed');
+      toggle.textContent = '▶';
+    }
+  });
+
+  // Copy code
+  function copyCode(id) {
+    const el = document.getElementById(id);
+    const text = el ? el.innerText : '';
+    navigator.clipboard.writeText(text).then(() => {
+      // find the button in the parent
+      const btn = el.parentElement.querySelector('.copy-btn');
+      if (btn) {
+        const orig = btn.innerText;
+        btn.innerText = '✅ Copié !';
+        setTimeout(() => { btn.innerText = orig; }, 2000);
+      }
+    });
+  }
+
+  // Make nav items trigger correctly
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
+

@@ -1,0 +1,427 @@
+Subject: 📊 Guide complet : Architecture et flux de traitement des données MPox
+
+---
+
+Bonjour,
+
+Vous m'avez demandé d'expliquer comment tous vos scripts fonctionnent ensemble. J'ai analysé votre venv complet et j'aimerais vous présenter une vue d'ensemble claire du pipeline de traitement des données MPox.
+
+ARCHITECTURE GÉNÉRALE
+=====================
+
+Votre projet est organisé en 3 couches de traitement :
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    COUCHE 1 : EXTRACTION                        │
+│              (Script extraction/ + main.py)                     │
+│  Fichiers Word CRF → Données structurées (CSV/JSON)            │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                 COUCHE 2 : PRÉ-ANALYSE                          │
+│        (.venv/Scripts/Script preAnalyse/)                       │
+│  Données → Classification variables + Synthèse données          │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                  COUCHE 3 : VISUALISATION                       │
+│         (.venv/Scripts/Script Analyse/)                         │
+│  Données → 14 graphiques + Dashboard HTML interactif            │
+└─────────────────────────────────────────────────────────────────┘
+
+
+COUCHE 1 : EXTRACTION (Script extraction/)
+===========================================
+
+FICHIERS IMPLIQUÉS :
+  • main.py (orchestrateur principal)
+  • extract_word.py (lecture fichiers .docx)
+  • parsers.py (extraction regex des champs)
+  • aggregator.py (consolidation des données)
+  • export.py (sauvegarde CSV/JSON)
+
+FLUX DÉTAILLÉ :
+
+  1. main.py démarre
+     └─> Appelle : load_all_word_files() depuis extract_word.py
+  
+  2. extract_word.py
+     └─> Boucle sur tous les fichiers .docx du dossier parent (..)
+         └─> Pour chaque fichier :
+             └─> Utilise Document() de python-docx
+                 └─> Extrait tout le texte brut
+  
+  3. Données texte → parsers.py
+     └─> Chaque fonction parse_* extrait une section du CRF
+         ├─ parse_demografiques() : âge, sexe
+         ├─ parse_symptomes() : fièvre, lésions, etc.
+         ├─ parse_pcr() : résultats, Ct values
+         ├─ parse_vaccins() : historique vaccinal
+         ├─ parse_vih() : statut VIH
+         ├─ parse_lesions() : localisations, types
+         ├─ parse_ganglions() : adénopathies
+         └─ parse_comorbidites() : conditions pré-existantes
+  
+  4. aggregator.py
+     └─> Consolide tous les patients extraits
+         └─> Crée un dictionnaire par patient
+             └─> Ajoute 'source_file' pour traçabilité
+  
+  5. export.py
+     └─> Sauvegarde les résultats
+         ├─ extraction.csv (format tableur)
+         └─ extraction.json (format structuré)
+
+ENTRÉES COUCHE 1 :
+  • Fichiers .docx dans le dossier racine CRF Mpox
+    (ex: MPXRM_INRB_Clinic_Baseline_CRF_V1.0_02DEC22.docx)
+
+SORTIES COUCHE 1 :
+  • extraction.csv : 9 cas × 104 colonnes
+  • extraction.json : même contenu, format JSON
+
+
+COUCHE 2 : PRÉ-ANALYSE (.venv/Scripts/Script preAnalyse/)
+==========================================================
+
+CET ÉTAGE A 2 CHEMINS POSSIBLES :
+
+─── CHEMIN A : DONNÉES RÉELLES ───
+  extraction.json (depuis couche 1)
+       ↓
+  analyze_extraction.py
+       ├─> Charge extraction.json
+       ├─> Classifie automatiquement les 104 variables
+       │   ├─ Détecte : quantitative, nominale, binaire, temporelle
+       │   ├─ Identifie : variables dépendantes vs indépendantes
+       │   └─ Calcule : exemple valeurs, n_unique
+       ├─> Crée 12 variables dérivées
+       │   ├─ pcr_lesion_positif, pcr_oropharynx_positif (booléens)
+       │   ├─ ct_value_num, charge_virale_cat (numériques)
+       │   ├─ nb_symptomes, severe (indices de sévérité)
+       │   ├─ vih_statut (consolidé)
+       │   ├─ delai_symptomes_vers_pcr_jours (temporel)
+       │   └─ ... etc
+       └─> Génère plans de comparaison dynamiques
+           ├─ outputs/variables_catalog.csv (104 variables classifiées)
+           └─ outputs/comparison_plan.json (suggestions d'analyses)
+
+─── CHEMIN B : DONNÉES SYNTHÉTIQUES DE TEST ───
+  rdmStats.py
+       ├─> Génère 80 cas fictifs mais réalistes
+       │   ├─ Simule : démographie, symptômes, PCR, vaccins, VIH
+       │   ├─ Corrèle : CT au délai, lésions à positivité
+       │   └─ Crée des relations épidémiologiquement plausibles
+       └─> Exporte :
+           ├─ extraction_synthetique.json
+           └─ synthetic_outputs/donnees_synthetiques_flat.csv
+
+REMARQUE : Les deux chemins produisent le MÊME format
+           (données tabulaires avec colonnes standardisées)
+
+SORTIES COUCHE 2 :
+  • variables_catalog.csv (référence classification)
+  • comparison_plan.json (plans d'analyses suggérées)
+  • donnees_synthetiques_flat.csv (si chemin B)
+
+
+COUCHE 3 : VISUALISATION (.venv/Scripts/Script Analyse/)
+=========================================================
+
+analyse.py : PIPELINE GRAPHIQUE COMPLET
+
+  ENTRÉE :
+    donnees_synthetiques_flat.csv (ou données réelles équivalentes)
+  
+  TRAITEMENT :
+    1. Navigue automatiquement vers Script extraction/
+    
+    2. Charge les données
+       └─> Normalise les booléens
+       └─> Convertit les dates
+       └─> Crée les variables dérivées manquantes
+    
+    3. Génère 14 graphiques thématiques
+       ├─ Section 1 : Surveillance (2 graphiques)
+       │   └─ Incidence hebdo + Diagnostic
+       │
+       ├─ Section 2 : Infectiosité (5 graphiques)
+       │   └─ CT vs délai + Localisations + Mobilité
+       │
+       ├─ Section 3 : Risques (3 graphiques)
+       │   └─ Symptômes + Sévérité VIH + QC labo
+       │
+       └─ Section 4 : Prévention (4 graphiques)
+           └─ Vaccins + Âge + Sexe
+    
+    4. Ajoute intervalles de confiance Wilson à chaque %
+    
+    5. Crée un index HTML
+       └─ dashboard.html : tous les graphiques intégrés
+    
+    6. Sauvegarde dans dashboard_outputs/
+
+SORTIES COUCHE 3 :
+  • 14 fichiers PNG (graphiques)
+  • 1 fichier dashboard.html (index interactif)
+
+
+DÉPENDANCES ENTRE SCRIPTS
+==========================
+
+Les dépendances Python :
+
+  ┌─ python-docx ─────→ extract_word.py (lit .docx)
+  │
+  ├─ pandas ──────────→ Tous les scripts
+  │
+  ├─ numpy ───────────→ analyze_extraction.py, analyse.py
+  │
+  ├─ matplotlib ──────→ analyse.py (graphiques)
+  │
+  └─ seaborn ─────────→ analyse.py (styles graphiques)
+
+Les variables communes entre scripts :
+
+  • pcr_any_positif : Définie dans couche 2 → utilisée couche 3
+  • ct_value_num : Définie dans couche 2 → utilisée couche 3
+  • nb_symptomes : Définie dans couche 2 → utilisée couche 3
+  • vih_statut : Définie dans couche 2 → utilisée couche 3
+  • age_bin, delai_bin : Créées dans couche 3 pour graphiques
+
+
+FLUX COMPLET D'EXÉCUTION
+=========================
+
+SCÉNARIO RÉEL (avec données Word) :
+
+  $ cd "Script extraction"
+  $ python main.py
+  
+  ✓ extraction.csv créé
+  ✓ extraction.json créé
+  
+  $ cd ../.venv/Scripts/Script\ preAnalyse
+  $ python analyze_extraction.py
+  
+  ✓ variables_catalog.csv créé
+  ✓ comparison_plan.json créé
+  
+  (Puis préparez vos données pour couche 3...)
+
+
+SCÉNARIO TEST (données synthétiques) :
+
+  $ cd "Script extraction"
+  $ python rdmStats.py
+  
+  ✓ synthetic_outputs/donnees_synthetiques_flat.csv créé
+  ✓ extraction_synthetique.json créé
+  
+  $ cd ../.venv/Scripts/Script\ Analyse
+  $ python analyse.py
+  
+  ✓ dashboard_outputs/*.png créés (14 graphiques)
+  ✓ dashboard_outputs/dashboard.html créé
+  
+  → Ouvrez dashboard.html dans le navigateur
+
+
+ARCHITECTURE PHYSIQUE
+======================
+
+Racine du projet (CRF Mpox/)
+│
+├─ Script extraction/ ────────────────────────────────────┐
+│  ├─ main.py ◄────────────────────────────────────────┐ │
+│  ├─ extract_word.py ◄────────────────────────────┐   │ │
+│  ├─ parsers.py ◄──────────────────────────────┐  │   │ │
+│  ├─ aggregator.py ◄────────────────────────┐   │  │   │ │
+│  ├─ export.py ◄────────────────────────┐   │   │  │   │ │
+│  │                                      │   │   │  │   │ │
+│  ├─ extraction.csv (sortie 1)           │   │   │  │   │ │
+│  ├─ extraction.json ─────────────────┐  │   │   │  │   │ │
+│  │                                   │  │   │   │  │   │ │
+│  ├─ synthetic_outputs/               │  │   │   │  │   │ │
+│  │  └─ donnees_synthetiques_flat.csv ◄──┤   │   │  │   │ │
+│  │     (entrée couche 3)             │  │   │   │  │   │ │
+│  │                                   │  │   │   │  │   │ │
+│  └─ dashboard_outputs/               │  │   │   │  │   │ │
+│     ├─ 01_*.png à 14_*.png           │  │   │   │  │   │ │
+│     └─ dashboard.html (sortie 3)     │  │   │   │  │   │ │
+│                                      │  │   │   │  │   │ │
+├─ .venv/Scripts/                      │  │   │   │  │   │ │
+│  ├─ Script preAnalyse/               │  │   │   │  │   │ │
+│  │  ├─ analyze_extraction.py ◄───────┘  │   │   │  │   │ │
+│  │  │   (entrée: couche 1, sortie: catalog)    │  │   │ │
+│  │  ├─ rdmStats.py ◄────────────────────┘   │  │   │ │
+│  │  │   (sortie: donnees_synthetiques...)   │  │   │ │
+│  │  └─ readme.txt                          │  │   │ │
+│  │                                         │  │   │ │
+│  └─ Script Analyse/                        │  │   │ │
+│     ├─ analyse.py ◄─────────────────────────┘  │ │
+│     │   (entrée: couche 2, sortie: graphiques)  │ │
+│     └─ readme.txt                               │ │
+│                                                 │ │
+└─ [Fichiers Word CRF] ◄──────────────────────────┘ │
+   (MPXRM_INRB_*.docx)                              │
+                                                    └─ Lus par couche 1
+
+
+RÉSUMÉ DES TRANSFORMATIONS
+==========================
+
+COUCHE 1 (Extraction) :
+  Fichiers Word → Texte brut → Extraction regex → 
+  → Variables nommées → Dictionnaires → CSV + JSON
+  
+  Exemple : "Date premiers symptômes : 15/mai/2025"
+           ↓ (regex)
+           → {"date_premiers_symptomes": "15/mai/2025"}
+
+COUCHE 2 (Classification) :
+  Données brutes → Typage automatique → 
+  → Variables dérivées → Catalogue référence
+  
+  Exemple : "date_premiers_symptomes" + "pcr_lesionnaire_date"
+           ↓ (dérivée)
+           → "delai_symptomes_vers_pcr_jours" = 4
+
+COUCHE 3 (Visualisation) :
+  Données nettoyées → Normalisation → 
+  → Calcul IC Wilson → Graphiques → Dashboard
+  
+  Exemple : 100 patients PCR+ / 200 total
+           ↓ (avec IC Wilson)
+           → Bar + errorbars = "50% [45%-55%]"
+
+
+POINTS D'INTÉGRATION CLÉS
+=========================
+
+Entre Couche 1 et 2 :
+  └─ extraction.json (ou CSV) doit avoir format standard
+  └─ Colonnes doivent suivre convention de nommage
+  └─ NaN/vides sont gérés automatiquement
+
+Entre Couche 2 et 3 :
+  └─ donnees_synthetiques_flat.csv doit exister
+  └─ Colonnes essentielles : pcr_any_positif, age, dates, etc.
+  └─ Script 3 crée les dérivées manquantes automatiquement
+
+Vers le Dashboard HTML :
+  └─ Tous les PNG doivent être dans dashboard_outputs/
+  └─ Noms de fichiers doivent correspondre aux sections
+  └─ HTML génère liens relatifs → ouvrable localement
+
+
+COMMENT ADAPTER LE PIPELINE
+============================
+
+Pour AJOUTER une variable :
+  1. Ajouter pattern regex dans parsers.py (couche 1)
+  2. Couche 2 la détectera automatiquement
+  3. Optionnel : créer dérivée dans couche 3
+
+Pour AJOUTER un graphique :
+  1. Ajouter section dans analyse.py (couche 3)
+  2. Utiliser pattern existing comme modèle
+  3. Inclure dans la section HTML appropriée
+
+Pour MODIFIER le pipeline :
+  1. Couche 1 : Ajuster extraction/parsing
+  2. Couche 2 : Ajuster classification/dérivées
+  3. Couche 3 : Ajuster visualisation
+
+
+ENVIRONNEMENT VIRTUEL (.venv)
+=============================
+
+Votre venv contient 5 packages clés :
+
+  ✓ python-docx  : Lecture fichiers Word
+  ✓ pandas       : Manipulation données tabulaires
+  ✓ numpy        : Calculs numériques
+  ✓ matplotlib   : Graphiques de base
+  ✓ seaborn      : Graphiques statistiques
+
+Installation des dépendances :
+  
+  # Depuis le dossier racine
+  pip install python-docx pandas numpy matplotlib seaborn
+
+
+FICHIERS DE CONFIGURATION
+=========================
+
+Aucun fichier de config explicite (YAML, JSON). Configuration :
+
+  • Couche 1 : Heuristiques regex dans parsers.py
+  • Couche 2 : Hints dans NUMERIC_HINTS, TEMPORAL_HINTS, etc.
+  • Couche 3 : Bins (age_bin, delai_bin) au début du script
+
+
+POINTS D'ATTENTION
+==================
+
+⚠️ Dépendances de chemins :
+   └─ analyse.py navigue automatiquement vers Script extraction
+   └─ main.py cherche ".." pour fichiers Word
+   └─ Bien tester si structure change
+
+⚠️ Format de données :
+   └─ Les dates doivent être en DD/MMM/YYYY (couche 1)
+   └─ Les booléens convertis de "oui"/"non" (couche 2)
+   └─ Les NaN gérés automatiquement (couches 2-3)
+
+⚠️ Noms de colonnes :
+   └─ Normalisés en minuscules + tirets bas
+   └─ Accents supprimés automatiquement
+   └─ Cohérence essentielle entre couches
+
+⚠️ Performance :
+   └─ Couche 1 : Rapide (~1s pour 100 fichiers Word)
+   └─ Couche 2 : Très rapide (~0.5s pour 10k lignes)
+   └─ Couche 3 : Plus lent (~30s pour 14 graphiques)
+
+
+CONCLUSION
+==========
+
+Votre pipeline est une architecture **linéaire et modulaire** :
+
+  (Données brutes) → Extraction → Pré-analyse → Visualisation → Dashboard
+  
+Chaque couche :
+  ✓ Lit le format produit par la couche précédente
+  ✓ Applique sa propre logique
+  ✓ Produit un format standardisé pour la suivante
+  ✓ Peut être exécutée indépendamment (si données d'entrée présentes)
+
+C'est une excellente architecture pour :
+  • Déboguer une seule couche isolément
+  • Ajouter nouvelles analyses sans toucher aux couches précédentes
+  • Passer de données synthétiques à réelles facilement
+  • Maintenir la traçabilité des transformations
+
+
+J'espère que cette explication vous aide à bien comprendre le fonctionnement 
+global du système ! N'hésitez pas si vous avez des questions.
+
+Cordialement,
+Assistant IA
+
+---
+
+P.S. Vous pouvez relancer l'ensemble du pipeline avec :
+
+  # Données réelles
+  cd "Script extraction" && python main.py
+  cd ../.venv/Scripts/Script\ preAnalyse && python analyze_extraction.py
+  
+  # Ou données synthétiques
+  cd "Script extraction" && python rdmStats.py
+  cd ../.venv/Scripts/Script\ Analyse && python analyse.py
+  
+  # Puis ouvrez : dashboard_outputs/dashboard.html
+

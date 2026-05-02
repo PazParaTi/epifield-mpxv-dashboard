@@ -1,0 +1,12 @@
+pandas
+numpy
+matplotlib
+seaborn
+statsmodels
+plotly
+folium
+watchdog
+pytest
+scipy
+altair>=5.0.0
+streamlit>=1.39.0
